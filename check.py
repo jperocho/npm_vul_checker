@@ -9,23 +9,34 @@ def load_vulnerable_packages(vuln_file):
         return {line.strip() for line in f if line.strip()}
 
 def scan_file(filepath, vulnerable_packages):
-    """Check a single package.json or package-lock.json file for vulnerable packages."""
-    found_packages = set()
+    """Check a single package.json or package-lock.json file for vulnerable packages and their versions."""
+    found_packages = {}
 
     try:
         with open(filepath, "r") as f:
             data = json.load(f)
 
-        deps = set()
-        if "dependencies" in data:
-            deps.update(data["dependencies"].keys())
-        if "devDependencies" in data:
-            deps.update(data["devDependencies"].keys())
+        deps = {}
+        # For package.json
+        for dep_type in ("dependencies", "devDependencies"):
+            if dep_type in data:
+                for pkg, ver in data[dep_type].items():
+                    if pkg in vulnerable_packages:
+                        deps[pkg] = ver
+        # For package-lock.json
         if "packages" in data:  # package-lock.json v2+
-            deps.update(data["packages"].keys())
+            for pkg_path, pkg_info in data["packages"].items():
+                pkg_name = pkg_path.split("node_modules/")[-1] if "node_modules/" in pkg_path else pkg_path
+                if pkg_name in vulnerable_packages:
+                    ver = pkg_info.get("version", "?")
+                    deps[pkg_name] = ver
+        elif "dependencies" in data:  # package-lock.json v1
+            for pkg, info in data["dependencies"].items():
+                if pkg in vulnerable_packages:
+                    ver = info.get("version", "?")
+                    deps[pkg] = ver
 
-        found = deps.intersection(vulnerable_packages)
-        found_packages.update(found)
+        found_packages.update(deps)
 
     except Exception as e:
         print(f"[!] Failed to parse {filepath}: {e}")
@@ -43,13 +54,14 @@ def scan_folder_recursive(base_folder, vuln_file):
                 filepath = os.path.join(root, filename)
                 found = scan_file(filepath, vulnerable_packages)
                 if found:
-                    folder_name = os.path.basename(root)
-                    results[folder_name] = results.get(folder_name, set()).union(found)
+                    results[root] = results.get(root, {})
+                    results[root].update(found)
 
     if results:
         print("\n⚠️ Vulnerable packages found:")
         for folder, pkgs in results.items():
-            print(f"  {folder}: {', '.join(pkgs)}")
+            pkg_str = ", ".join(f"{pkg}:{ver}" for pkg, ver in pkgs.items())
+            print(f"  {folder}: {pkg_str}")
     else:
         print("✅ No vulnerable packages found in any folder.")
 
