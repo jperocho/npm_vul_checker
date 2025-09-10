@@ -10,10 +10,14 @@ A simple Python tool to recursively scan a project (or monorepo) for vulnerable 
 Recursively scans a folder and all its subfolders for:
 - `package.json`
 - `package-lock.json`
+- `yarn.lock`
 
 Checks against a custom vulnerable package list (e.g., `vulv.txt`).
 
-Reports vulnerable packages along with the folder they were found in.
+Reports vulnerable packages along with the folder they were found in, including:
+- The version found in your project
+- The vulnerable version listed in `vulv.txt`
+- Flags if your version matches or is below the vulnerable version
 
 ## Installation
 
@@ -28,14 +32,16 @@ No extra dependencies are required — just Python 3.7+.
 
 ## Usage
 
-Create a `vulv.txt` file containing package names to flag (one per line):
+Create a `vulv.txt` file containing package names and vulnerable versions to flag (one per line):
 
 ```text
-chalk
-debug
-ansi-regex
-supports-color
+chalk:5.6.1
+debug:4.4.2
+ansi-regex:6.2.1
+supports-color:10.2.1
 ```
+
+You can also list just the package name (without a version) to flag all versions.
 
 Run the checker:
 
@@ -47,8 +53,8 @@ python check.py --list=./vulv.txt --folder=/path/to/your/project
 
 ```
 ⚠️ Vulnerable packages found:
-  my-app: chalk, ansi-regex
-  utils-lib: debug
+  my-app: chalk:5.6.1 (vuln:5.6.1), ansi-regex:6.2.1 (vuln:6.2.1)
+  utils-lib: debug:4.4.2 (vuln:4.4.2)
 ```
 
 If no vulnerable packages are detected:
